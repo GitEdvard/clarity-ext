@@ -5,23 +5,14 @@ import unittest
 import os
 import inspect
 from clarity_ext.utility.hamilton_driver_file_reader import HamiltonReader, HamiltonColumnReference
-
-# TODO: Move the resource file closer to the corresponding test
-DRIVER_FILE_RELATIVE_PATH = os.path.join(os.path.dirname(__file__),
-                                         "resources",
-                                         "SX614_SX686_160308_4_J_Ham.txt")
+from test.unit.clarity_ext.utility.resources.SX614_SX686_160308_4_J_Ham import contents as driver_file_contents
 
 
 # noinspection SpellCheckingInspection
 class HamiltonDriverFileTests(unittest.TestCase):
 
     def setUp(self):
-        abspath = os.path.abspath(inspect.stack()[0][1])
-        currentdir = os.path.dirname(abspath)
-        driverfilepath = os.path.join(currentdir, DRIVER_FILE_RELATIVE_PATH)
-        with open(driverfilepath, 'r') as driverfile:
-            filecontents = driverfile.read()
-        self.file_reader = HamiltonReader(filecontents)
+        self.file_reader = HamiltonReader(driver_file_contents)
         self.column_ref = HamiltonColumnReference()
 
     def test_number_columns(self):
