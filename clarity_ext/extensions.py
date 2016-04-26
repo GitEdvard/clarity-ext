@@ -3,7 +3,7 @@ import importlib
 import os
 import shutil
 from clarity_ext.driverfile import DriverFileService
-from context import ExtensionContext
+from context import ExtensionContext, MockifyExtensionContext
 import clarity_ext.utils as utils
 from abc import ABCMeta, abstractmethod
 import logging
@@ -23,6 +23,7 @@ class ExtensionService:
     RUN_MODE_TEST = "test"
     RUN_MODE_FREEZE = "freeze"
     RUN_MODE_EXEC = "exec"
+    RUN_MODE_EXPORT_MOCK = "export_mock"
 
     # TODO: It would be preferable to have all cached data in a subdirectory, needs a patch in requests-cache
     CACHE_NAME = ".http_cache"
@@ -34,8 +35,9 @@ class ExtensionService:
     def _run_path(self, args, module, mode, config):
         if mode == self.RUN_MODE_EXEC:
             return config["exec_root_path"]
-        elif mode == self.RUN_MODE_TEST or mode == self.RUN_MODE_FREEZE:
-            root = config["test_root_path"] if mode == self.RUN_MODE_TEST else config["frozen_root_path"]
+        elif mode == self.RUN_MODE_TEST or mode == self.RUN_MODE_FREEZE or \
+                mode == self.RUN_MODE_EXPORT_MOCK:
+            root = config["frozen_root_path"] if mode == self.RUN_MODE_FREEZE else config["test_root_path"]
             # When testing or freezing, we need subdirectories based on the modules path
             # so they don't get mixed up:
             module_parts = module.split(".")[1:]
@@ -43,6 +45,9 @@ class ExtensionService:
             return os.path.join(root, path, args["pid"], "run-" + mode)
         else:
             raise ValueError("Unexpected mode")
+
+    def _mock_path(self, config):
+        return config["mock_root_path"]
 
     def _parse_run_argument(self, in_argument):
         if isinstance(in_argument, str):
@@ -70,7 +75,8 @@ class ExtensionService:
             config = {
                 "test_root_path": "./clarity_ext_scripts/int_tests",
                 "frozen_root_path": "../clarity-ext-frozen",
-                "exec_root_path": "."
+                "exec_root_path": ".",
+                "mock_root_path": "mock_staging"
             }
         if mode == self.RUN_MODE_TEST:
             self.logger.info("Using cache {}".format(self.CACHE_NAME))
@@ -85,7 +91,10 @@ class ExtensionService:
         extension = getattr(module_obj, "Extension")
         instance = extension(None)
 
-        if not run_arguments_list and (mode == self.RUN_MODE_TEST or mode == self.RUN_MODE_FREEZE):
+        if not run_arguments_list and (
+                            mode == self.RUN_MODE_TEST or
+                            mode == self.RUN_MODE_FREEZE or
+                            mode == self.RUN_MODE_EXPORT_MOCK):
             run_arguments_list = map(self._parse_run_argument, instance.integration_tests())
             if len(run_arguments_list) == 0:
                 print("WARNING: No integration tests defined. Not able to test.")
@@ -93,7 +102,7 @@ class ExtensionService:
         elif not isinstance(run_arguments_list, list):
             run_arguments_list = [run_arguments_list]
 
-        if mode in [self.RUN_MODE_TEST, self.RUN_MODE_EXEC]:
+        if mode in [self.RUN_MODE_TEST, self.RUN_MODE_EXEC, self.RUN_MODE_EXPORT_MOCK]:
             if mode == self.RUN_MODE_TEST and print_help:
                 print("To execute from Clarity:")
                 print("  clarity-ext extension --args '{}' {} {}".format(
@@ -107,7 +116,7 @@ class ExtensionService:
                 path = self._run_path(run_arguments, module, mode, config)
                 frozen_path = self._run_path(run_arguments, module, self.RUN_MODE_FREEZE, config)
 
-                if mode == self.RUN_MODE_TEST:
+                if mode == self.RUN_MODE_TEST or self.RUN_MODE_EXPORT_MOCK:
                     http_cache_file = '{}.sqlite'.format(self.CACHE_NAME)
 
                     # Remove everything but the cache files
@@ -116,6 +125,7 @@ class ExtensionService:
                     else:
                         os.makedirs(path)
 
+                if mode == self.RUN_MODE_TEST:
                     # Copy the cache file from the frozen path if available:
                     frozen_http_cache_file = os.path.join(frozen_path, http_cache_file)
                     frozen_cache_dir = os.path.join(frozen_path, self.CACHE_ARTIFACTS_DIR)
@@ -130,13 +140,20 @@ class ExtensionService:
                         shutil.copytree(frozen_cache_dir, os.path.join(path, self.CACHE_ARTIFACTS_DIR))
 
                 old_dir = os.getcwd()
+                self.logger.debug("Old dir: {}".format(old_dir))
+                self.logger.debug("Current path:{}".format(path))
                 os.chdir(path)
 
                 cache_artifacts = mode == self.RUN_MODE_TEST
 
                 self.logger.info("Executing at {}".format(path))
 
-                context = ExtensionContext(run_arguments["pid"], cache=cache_artifacts)
+                if mode == self.RUN_MODE_EXPORT_MOCK:
+                    mock_path = os.path.join(old_dir, self._mock_path(config))
+                    context = MockifyExtensionContext(run_arguments["pid"], cache=cache_artifacts,
+                                                      mock_dir=mock_path)
+                else:
+                    context = ExtensionContext(run_arguments["pid"], cache=cache_artifacts)
 
                 if issubclass(extension, DriverFileExtension):
                     instance = extension(context)

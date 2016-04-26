@@ -1,8 +1,12 @@
 import unittest
 from clarity_ext.utility.hamilton_driver_file_reader import HamiltonReader
 from clarity_ext.utility.hamilton_driver_file_reader import HamiltonColumnReference
-import textwrap
+from test.unit.clarity_ext.mock.repository.process_243643_sn1 import contents as mock_dictionary
+from clarity_ext.context import FakingGenologicsMonkey, ExtensionContext
+from clarity_ext_scripts.dilution.create_hamilton_dilution import Extension
 
+
+TEST_PROCESS_ID = "24-3643"
 SAMPLE1 = "EdvardProv60"
 SAMPLE2 = "EdvardProv61"
 SAMPLE3 = "EdvardProv62"
@@ -17,13 +21,11 @@ class HamiltonTests(unittest.TestCase):
     """
 
     def setUp(self):
+        FakingGenologicsMonkey(mock_dictionary)
+        context = ExtensionContext(TEST_PROCESS_ID)
+        extension = Extension(context)
+        driver_file_contents = "\n".join([row_ for row_ in extension.content()])
         self.column_ref = HamiltonColumnReference()
-        driver_file_contents = """\
-                                  EdvardProv60	36	DNA1	14.9	5.1	34	END1
-                                  EdvardProv61	33	DNA2	14.9	5.1	17	END2
-                                  EdvardProv62	50	DNA2	14.9	5.1	44	END1
-                                  EdvardProv63	93	DNA2	14.9	5.1	69	END2"""
-        driver_file_contents = textwrap.dedent(driver_file_contents)
         self.hamilton_reader = HamiltonReader(driver_file_contents)
 
     def test_import_hamilton_reader(self):

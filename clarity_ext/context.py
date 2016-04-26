@@ -2,11 +2,12 @@ from genologics.config import BASEURI, USERNAME, PASSWORD
 from genologics.lims import Lims
 from genologics.entities import *
 import requests
-import os
 from clarity_ext.dilution import *
 import re
 import shutil
 import clarity_ext.utils as utils
+from clarity_ext.utility.uri_parser_mock import *
+from xml.etree import ElementTree
 
 
 class ExtensionContext:
@@ -23,7 +24,6 @@ class ExtensionContext:
         """
         lims = Lims(BASEURI, USERNAME, PASSWORD)
         lims.check_version()
-
         self.advanced = Advanced(lims)
         self.current_step = Process(lims, id=current_step)
         self.logger = logger or logging.getLogger(__name__)
@@ -93,6 +93,10 @@ class ExtensionContext:
         resources = self.current_step.all_inputs(unique=True, resolve=True)
         return [Analyte(resource, plate) for resource in resources]
 
+    def _get_all_outputs(self):
+        artifacts = self.current_step.all_outputs()
+        return artifacts
+
     @lazyprop
     def dilution_scheme(self):
         plate = Plate(plate_type=PLATE_TYPE_96_WELL)
@@ -151,7 +155,7 @@ class ExtensionContext:
         return utils.single(self._extended_input_containers)
 
     def cleanup(self):
-        """Cleans up any downloaded resources. This method will be automatically
+        """Cleans up any downloaded resources2. This method will be automatically
         called by the framework and does not need to be called by extensions"""
         # Clean up:
         for path in self._local_shared_files:
@@ -160,6 +164,113 @@ class ExtensionContext:
                                  "that it won't be uploaded again".format(path))
                 # TODO: Handle exception
                 os.remove(path)
+
+
+class MockifyExtensionContext(ExtensionContext):
+
+    def __init__(self, current_step, logger=None, cache=False,
+                 mock_dir=None):
+        # Define functions to be injected into the genologics.entities Entity class
+        def get_mock_identifier(self):
+            parser = URIParser()
+            mock_identifier = parser.parse_mock_identifier(self.uri)
+            return mock_identifier
+
+        def save_mock_to_file(self, directory):
+            file_path = os.path.join(directory, self.get_mock_file_name())
+            with open(file_path, 'w+') as mock_file:
+                contents = self.get_mock_contents()
+                mock_file.write(contents)
+
+        def get_mock_contents(self):
+            self.get()
+            data = self.lims.tostring(ElementTree.ElementTree(self.root))
+            return data
+
+        Entity.get_mock_contents = get_mock_contents
+        Entity.get_mock_identifier = get_mock_identifier
+        Entity.save_mock_to_file = save_mock_to_file
+
+        ExtensionContext.__init__(self, current_step, logger, cache)
+
+        if mock_dir:
+            self.export_mock_to_files(mock_dir)
+
+    def generate_contents_dict(self):
+        plate = Plate(plate_type=PLATE_TYPE_96_WELL)
+        xml_contents_dict = {}
+        # noinspection PyTypeChecker
+        xml_contents_dict = self._add_entity_contents(self.current_step,
+                                                      xml_contents_dict)
+        for in_analyte in self._get_input_analytes(plate):
+            xml_contents_dict = self._add_entity_contents(in_analyte.resource,
+                                                          xml_contents_dict)
+
+        for out_artifact in self._get_all_outputs():
+            xml_contents_dict = self._add_entity_contents(out_artifact,
+                                                          xml_contents_dict)
+
+        return xml_contents_dict
+
+    @staticmethod
+    def _add_entity_contents(entity, xml_dictionary):
+        xml_contents = entity.get_mock_contents()
+        mock_identifier = entity.get_mock_identifier()
+        xml_dictionary[mock_identifier] = xml_contents
+        return xml_dictionary
+
+    def export_mock_to_files(self, mock_dir):
+        old_dir = os.getcwd()
+        os.chdir(mock_dir)
+        self.logger.info("Exporting mock file to directory: \n{}".format(mock_dir))
+        xml_dictionary = self.generate_contents_dict()
+        with open("process_243643_sn1.py", 'w+') as mock_file:
+            mock_file.write("contents = {\n")
+            for mock_identifier in xml_dictionary:
+                contents = xml_dictionary[mock_identifier]
+                key_row = '"{}": \n'.format(mock_identifier)
+                contents_row = r'"""{}""",'.format(contents)
+                end = '\n'
+                mock_file.write(key_row + contents_row + end)
+            mock_file.write("}")
+        os.chdir(old_dir)
+
+
+class FakingGenologicsMonkey:
+    # Overwrite the http functions in genologics.lims Lims
+    # get, post, put, get_batch and put_batch
+    # redirect get function to get data from mock
+    def __init__(self, mock_dictionary):
+        # Define functions to replace in Entity
+        def put(self, uri, data, params=dict()):
+            pass
+
+        def post(self, uri, data, params=dict()):
+            pass
+
+        def get(self, uri, params=dict()):
+            parser = URIParser()
+            content = parser.get_xml(uri, mock_dictionary)
+            root = ElementTree.fromstring(content)
+            return root
+
+        def get_batch(self, instances, force=False):
+            for instance in instances:
+                instance.root = self.get(instance.uri)
+            return instances
+
+        def put_batch(self, instances):
+            pass
+
+        def check_version(self):
+            pass
+
+        Lims.check_version = check_version
+        Lims.put = put
+        Lims.post = post
+        Lims.get = get
+        Lims.get_batch = get_batch
+        Lims.put_batch = put_batch
 
 
 class MatchedAnalytes:
