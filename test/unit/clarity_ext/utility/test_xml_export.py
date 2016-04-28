@@ -1,8 +1,8 @@
 import unittest
 from clarity_ext.utility.uri_parser_mock import URIParser
-from clarity_ext.context import MockifyExtensionContext
-from clarity_ext.context import FakingGenologicsMonkey
-from test.unit.clarity_ext.mock.repository.process_243643_sn1 import contents as mock_dictionary
+from clarity_ext.context import ExtensionContextXMLExtracter
+from clarity_ext.context import FakingXMLMonkey
+from test.unit.clarity_ext.mock.xml.process_243643_sn1 import contents as mock_dictionary
 
 TEST_PROCESS_URI = "https://lims-staging.snpseq.medsci.uu.se/api/v2/processes/24-3643"
 TEST_PROCESS_ID = "24-3643"
@@ -13,16 +13,13 @@ FIRST_OUTPUT_ARTIFACT = "https://lims-staging.snpseq.medsci.uu.se/api/v2/artifac
 class SaveMockTests(unittest.TestCase):
 
     def setUp(self):
-        FakingGenologicsMonkey(mock_dictionary)
-        self.mockify = MockifyExtensionContext(TEST_PROCESS_ID)
+        self.mock = FakingXMLMonkey(mock_dictionary)
+        self.mockify = ExtensionContextXMLExtracter(TEST_PROCESS_ID)
         self.parser = URIParser()
         self.entity_xml_dict = self.mockify.generate_contents_dict()
 
-    def test_instantiate_mockify(self):
-        self.assertIsNotNone(self.mockify)
-
-    def test_generate_contents_dict(self):
-        self.assertIsNotNone(self.entity_xml_dict)
+    def tearDown(self):
+        self.mock.reset()
 
     def test_has_process(self):
         key = self.mockify.current_step.get_mock_identifier()

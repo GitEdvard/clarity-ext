@@ -3,7 +3,7 @@ import importlib
 import os
 import shutil
 from clarity_ext.driverfile import DriverFileService
-from context import ExtensionContext, MockifyExtensionContext
+from context import ExtensionContext, ExtensionContextXMLExtracter
 import clarity_ext.utils as utils
 from abc import ABCMeta, abstractmethod
 import logging
@@ -150,8 +150,8 @@ class ExtensionService:
 
                 if mode == self.RUN_MODE_EXPORT_MOCK:
                     mock_path = os.path.join(old_dir, self._mock_path(config))
-                    context = MockifyExtensionContext(run_arguments["pid"], cache=cache_artifacts,
-                                                      mock_dir=mock_path)
+                    context = ExtensionContextXMLExtracter(run_arguments["pid"], cache=cache_artifacts,
+                                                           mock_dir=mock_path)
                 else:
                     context = ExtensionContext(run_arguments["pid"], cache=cache_artifacts)
 

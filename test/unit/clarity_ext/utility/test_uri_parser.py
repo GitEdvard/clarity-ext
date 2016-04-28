@@ -1,5 +1,5 @@
 import unittest
-from test.unit.clarity_ext.mock.repository.process_243643_sn1 import contents as mock_dictionary
+from test.unit.clarity_ext.mock.xml.process_243643_sn1 import contents as mock_dictionary
 
 from clarity_ext.utility.uri_parser_mock import URIParser
 

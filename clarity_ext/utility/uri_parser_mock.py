@@ -10,7 +10,7 @@ MODULE_LOCATION = "test.unit.clarity_ext.mock.repository."
 
 
 class URIParser:
-    """ A class to take an URI and find contents in mock repository
+    """ A class to take an URI and find contents in a xml repository
     """
 
     def __init__(self):
