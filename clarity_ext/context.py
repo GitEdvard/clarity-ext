@@ -10,10 +10,10 @@ from clarity_ext.utility.uri_parser_mock import *
 from xml.etree import ElementTree
 
 
-class ExtensionContext:
-    """
+"""
     Defines context objects for extensions.
     """
+class ExtensionContext:
     def __init__(self, current_step, logger=None, cache=False):
         """
         Initializes the context.
@@ -230,7 +230,7 @@ class ExtensionContextXMLExtracter(ExtensionContext):
         os.chdir(mock_dir)
         self.logger.info("Exporting mock file to directory: \n{}".format(mock_dir))
         xml_dictionary = self.generate_contents_dict()
-        with open("process_243643_sn1.py", 'w+') as mock_file:
+        with open("xml_esport.py", 'w+') as mock_file:
             mock_file.write("contents = {\n")
             for mock_identifier in xml_dictionary:
                 contents = xml_dictionary[mock_identifier]

@@ -5,7 +5,6 @@ from clarity_ext.utility.hamilton_driver_file_reader import HamiltonReader
 from clarity_ext_scripts.dilution.create_hamilton_dilution import Extension
 from test.unit.clarity_ext.mock.dilution_mock import DilutionMock1
 
-TEST_PROCESS_ID = "24-3643"
 SAMPLE1 = "username1"
 SAMPLE2 = "username2"
 SAMPLE3 = "username3"
