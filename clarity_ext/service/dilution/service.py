@@ -159,6 +159,9 @@ class DilutionSession(object):
         # Now group all evaluated transfers together into a batch
         transfer_by_batch = dict()
 
+        # test
+        self.context.validation_service.step_logger_service.log('write to step log')
+
         for transfer_route in transfer_routes.values():
             for transfer in transfer_route.transfers:
                 transfer_by_batch.setdefault(transfer.batch, list())

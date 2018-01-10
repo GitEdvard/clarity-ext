@@ -222,10 +222,14 @@ class FileService:
     def commit(self, disable_commits):
         """Copies files in the upload queue to the server"""
         self.close_local_shared_files()
+        print('upload queue path: {}'.format(self.upload_queue_path))
+        d = self.os_service.listdir(self.upload_queue_path)
+        print('number objects: {}'.format(len(d)))
         for artifact_id in self.os_service.listdir(self.upload_queue_path):
             for file_name in self.os_service.listdir(os.path.join(self.upload_queue_path, artifact_id)):
                 if disable_commits:
                     self.logger.info("Uploading (disabled) file: {}".format(os.path.abspath(file_name)))
+                    print('upload: {}'.format(file_name))
                 else:
                     artifact = utils.single([shared_file for shared_file in self.artifact_service.shared_files()
                                              if shared_file.id == artifact_id])
