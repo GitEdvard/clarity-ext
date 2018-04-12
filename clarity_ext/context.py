@@ -180,7 +180,7 @@ class ExtensionContext(object):
         """
         return utils.single(self.artifact_service.all_input_containers())
 
-    def local_shared_file(self, name, mode="r", is_xml=False, is_csv=False, file_name_contains=None):
+    def local_shared_file(self, file_handle, mode="r", is_xml=False, is_csv=False, file_name_contains=None):
         """
         Downloads the file from the current step. The returned file is generally a regular
         file-like object, but can be casted to an xml object or csv by passing in is_xml or is_csv.
@@ -189,12 +189,21 @@ class ExtensionContext(object):
         NOTE: It would make sense to use constants instead of is_xml and is_csv, but since this
         is designed to be used by non-developers, this might be more readable.
         """
+        def check_file_extension(extension):
+            self.file_service.local_shared_file_provider.check_file_extension(
+                file_handle,
+                required_extension=extension,
+                filename_contains=file_name_contains
+            )
+
         if is_xml and is_csv:
             raise ValueError("More than one file type specifiers")
-        f = self.file_service.local_shared_file(name, mode=mode, file_name_contains=file_name_contains)
+        f = self.file_service.local_shared_file(file_handle, mode=mode, file_name_contains=file_name_contains)
         if is_xml:
+            check_file_extension('.xml')
             return self.file_service.parse_xml(f)
         elif is_csv:
+            check_file_extension('.csv')
             return self.file_service.parse_csv(f)
         else:
             return f

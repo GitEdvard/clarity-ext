@@ -266,6 +266,22 @@ class LocalSharedFileProvider:
         return self._local_shared_file(artifact, filename, mode=mode, extension=extension,
                                        modify_attached=modify_attached)
 
+    def check_file_extension(self, clarity_file_handle, required_extension=None, filename_contains=None):
+        """
+
+        :param clarity_file_handle: Type of file as written in the clarity lims ui
+        :param required_extension: the dot should be included, e.g. '.csv'
+        :param filename_contains: In case there are more than one file under a given clarity file handle
+        :return: void
+        """
+        artifact = self._artifact_by_name(clarity_file_handle, filename=filename_contains)
+        file_name = os.path.basename(artifact.file_name)
+        _, actual_extension = os.path.splitext(file_name)
+        if not required_extension == actual_extension:
+            raise SharedFileNotFound('This file has the wrong extension: {}. Expected: {}, found: {}'.format(
+                file_name, required_extension, actual_extension
+            ))
+
     def _local_shared_file(self, artifact, filename, mode='r', extension="",
                            modify_attached=False):
         """
